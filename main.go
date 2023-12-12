@@ -70,7 +70,7 @@ func formatName(name *string, colorHex *string) string {
 func formatMessage(s *string, emotes *[]*twitch.Emote) string {
 	// TODO: Format Twitch emotes and display them
 	// See: printEmote
-	return formatEmotes(s, emotes)
+    return *s
 }
 
 func formatBadges(badges *map[string]int) string {
