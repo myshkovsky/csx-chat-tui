@@ -1,11 +1,32 @@
 package main
 
 import (
+	"embed"
+	"errors"
 	"fmt"
+	"image/png"
+	"os"
+	"os/exec"
+	"sync"
+	"time"
+
+	"github.com/dolmen-go/kittyimg"
 	"github.com/gempir/go-twitch-irc/v4"
 	color "github.com/gookit/color"
-	"time"
 )
+
+var wg *sync.WaitGroup
+var cachePath string
+//go:embed cache/emotes/*
+var files embed.FS
+
+func init() {
+    wg = new(sync.WaitGroup)
+    f, err := os.Lstat("./")
+    cachePath = "cache/emotes"
+    err = os.MkdirAll(cachePath, f.Mode().Perm())
+    catchError(err)
+}
 
 func main() {
 	client := twitch.NewAnonymousClient()
@@ -17,9 +38,14 @@ func main() {
 	client.Join("myshkovsky")
 
 	err := client.Connect()
-	if err != nil {
-		panic(err)
+	catchError(err)
+}
+
+func fileExists(path string) bool {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return false
 	}
+	return true
 }
 
 func formatForDisplay(message *twitch.PrivateMessage) string {
@@ -28,7 +54,7 @@ func formatForDisplay(message *twitch.PrivateMessage) string {
 		formatTimestamp(),
 		formatBadges(&message.User.Badges),
 		formatName(&message.User.Name, &message.User.Color),
-		formatMessage(&message.Message),
+		formatMessage(&message.Message, &message.Emotes),
 	)
 }
 
@@ -41,8 +67,10 @@ func formatName(name *string, colorHex *string) string {
 	return color.HEX(*colorHex).Sprint(*name)
 }
 
-func formatMessage(s *string) string {
-	return *s
+func formatMessage(s *string, emotes *[]*twitch.Emote) string {
+	// TODO: Format Twitch emotes and display them
+	// See: printEmote
+	return formatEmotes(s, emotes)
 }
 
 func formatBadges(badges *map[string]int) string {
@@ -60,4 +88,44 @@ func formatBadges(badges *map[string]int) string {
 		}
 	}
 	return s
+}
+
+func formatEmotes(msg *string, emotes *[]*twitch.Emote) string {
+	formatted := *msg
+	for _, emote := range *emotes {
+		for _, v := range emote.Positions {
+			formatted = formatted[:v.Start] + "<@>" + emote.Name + "<@>" + formatted[v.End+1:]
+		}
+	}
+	return formatted
+}
+
+// WARNING: Not implemented: Most Windows terminals are unable to display the image
+func printEmote(id string, name string) {
+	if !fileExists(fmt.Sprintf("%s/%s.png", cachePath, name)) {
+		wg.Add(1)
+		go downloadImg(id, name)
+	}
+	wg.Wait()
+	f, err := files.Open(fmt.Sprintf("%s/%s.png", cachePath, name))
+	defer f.Close()
+	catchError(err)
+	img, err := png.Decode(f)
+	catchError(err)
+	kittyimg.Fprint(os.Stdout, img)
+}
+
+func downloadImg(id string, name string) {
+	defer wg.Done()
+	url := fmt.Sprintf(
+		"https://static-cdn.jtvnw.net/emoticons/v2/%s/default/dark/1.0",
+		id,
+	)
+	path := fmt.Sprintf("%s/%s.png", cachePath, name)
+	err := exec.Command("curl", url, "-o", path).Run()
+	catchError(err)
+}
+
+func catchError(err error) {
+	panic(err)
 }
