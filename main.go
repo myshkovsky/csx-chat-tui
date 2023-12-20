@@ -13,29 +13,49 @@ import (
 	"github.com/dolmen-go/kittyimg"
 	"github.com/gempir/go-twitch-irc/v4"
 	color "github.com/gookit/color"
+	"gopkg.in/yaml.v3"
 )
+
+type config struct {
+	Channel string `yaml:"channel"`
+	Badges  struct {
+		TwitchStaff string `yaml:"twitch-staff"`
+		Broadcaster string `yaml:"broadcaster"`
+		Moderator   string `yaml:"moderator"`
+		Subscriber  string `yaml:"subscriber"`
+	} `yaml:"badges"`
+}
+
+func (c *config) getConfig() *config {
+	yamlFile, err := os.ReadFile("config.yaml")
+	catchError(err)
+	err = yaml.Unmarshal(yamlFile, c)
+	catchError(err)
+	return c
+}
 
 var wg *sync.WaitGroup
 var cachePath string
 //go:embed cache/emotes/*
 var files embed.FS
+var c config
 
 func init() {
-    wg = new(sync.WaitGroup)
-    f, err := os.Lstat("./")
-    cachePath = "cache/emotes"
-    err = os.MkdirAll(cachePath, f.Mode().Perm())
-    catchError(err)
+	wg = new(sync.WaitGroup)
+	f, err := os.Lstat("./")
+	cachePath = "cache/emotes"
+	err = os.MkdirAll(cachePath, f.Mode().Perm())
+	catchError(err)
 }
 
 func main() {
 	client := twitch.NewAnonymousClient()
-
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		fmt.Println(formatForDisplay(&message))
 	})
 
-	client.Join("myshkovsky")
+	c.getConfig()
+	client.Join(c.Channel)
 
 	err := client.Connect()
 	catchError(err)
@@ -50,7 +70,7 @@ func fileExists(path string) bool {
 
 func formatForDisplay(message *twitch.PrivateMessage) string {
 	return fmt.Sprintf(
-		"%s %s %s: %s",
+		"%s %s%s: %s",
 		formatTimestamp(),
 		formatBadges(&message.User.Badges),
 		formatName(&message.User.Name, &message.User.Color),
@@ -70,7 +90,7 @@ func formatName(name *string, colorHex *string) string {
 func formatMessage(s *string, emotes *[]*twitch.Emote) string {
 	// TODO: Format Twitch emotes and display them
 	// See: printEmote
-    return *s
+	return *s
 }
 
 func formatBadges(badges *map[string]int) string {
@@ -78,14 +98,18 @@ func formatBadges(badges *map[string]int) string {
 	for k := range *badges {
 		switch k {
 		case "admin", "staff":
-			s += "👮"
+			s += c.Badges.TwitchStaff
 		case "broadcaster":
-			s += "🌌"
+			s += c.Badges.Broadcaster
 		case "moderator":
-			s += "🛡"
+			s += c.Badges.Moderator
 		case "subscriber":
-			s += "🌟"
+			s += c.Badges.Subscriber
 		}
+	}
+	if s != "" {
+		// This is silly but it works :)
+		s += " "
 	}
 	return s
 }
@@ -127,5 +151,7 @@ func downloadImg(id string, name string) {
 }
 
 func catchError(err error) {
-	panic(err)
+	if err != nil {
+		panic(err)
+	}
 }

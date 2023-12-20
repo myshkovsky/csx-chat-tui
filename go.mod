@@ -6,6 +6,7 @@ require (
 	github.com/dolmen-go/kittyimg v0.0.0-20220904140504-22f6493b700f
 	github.com/gempir/go-twitch-irc/v4 v4.0.0
 	github.com/gookit/color v1.5.4
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
