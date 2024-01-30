@@ -124,7 +124,7 @@ func formatEmotes(msg *string, emotes *[]*twitch.Emote) string {
 	return formatted
 }
 
-// WARNING: Not implemented: Most Windows terminals are unable to display the image
+// TODO: Not implemented - most Windows terminals won't display images correctly
 func printEmote(id string, name string) {
 	if !fileExists(fmt.Sprintf("%s/%s.png", cachePath, name)) {
 		wg.Add(1)
