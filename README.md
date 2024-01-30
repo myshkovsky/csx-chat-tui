@@ -15,6 +15,7 @@ It is not a priority of mine, so I thought I'd publish it in case someone finds 
 - [ ] Display Twitch global & channel emotes
 - [ ] Display 7TV emotes
 - [ ] Send messages directly from the TUI
+- [ ] Create a template config if no config file is found
 
 ## Usage
 
